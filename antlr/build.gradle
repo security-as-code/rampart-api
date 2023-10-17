@@ -1,0 +1,28 @@
+plugins {
+    id 'antlr'
+}
+
+dependencies {
+    antlr 'org.rampart.antlr:antlr4-tool:4.7.3:complete'
+}
+
+/* Antlr Config */
+generateGrammarSource {
+    outputDirectory = file(new File(outputDirectory, "org/rampart/lang/grammar"))
+    arguments += ["-visitor", "-no-listener"]
+}
+
+jar {
+    archiveFileName = antlrJarName + "-" + project.property('version') + ".jar"
+    manifest {
+        attributes("Built-By": System.getProperty("user.name"),
+                "Creation-Timestamp": getTS(),
+                "Implementation-Version": project.property('version'),
+                "Implementation-Vendor": "Rampart",
+                "Implementation-URL": "http://www.rampart.org",
+                "Jarfile-Name": archiveFileName,
+                "Mode-Name": "release",
+                "Version-Name": project.property('version') + "-" + getGitRevHash(),
+                "Changeset-Name": getGitRevHash())
+    }
+}

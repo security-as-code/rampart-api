@@ -1,0 +1,114 @@
+import java.util.regex.Matcher
+import java.util.regex.Pattern
+
+plugins {
+    id 'java'
+    id 'maven'
+}
+
+dependencies {
+    // runtime dependency, source dependency is in antlr/build.gradle
+    implementation 'org.rampart.antlr:antlr4-runtime:4.7.3'
+}
+
+allprojects{
+    // TODO Maven repositories used so far are not Public, this will be configured soon
+
+    tasks.withType(JavaCompile) {
+        if (!name.contains("compileTestJava")) {
+            options.fork = true
+            options.forkOptions.executable = getJavac()
+            sourceCompatibility = compatibility
+            targetCompatibility = compatibility
+        }
+    }
+}
+
+subprojects.each { subproject ->
+    evaluationDependsOn(subproject.path)
+}
+
+task fatJar(type: Jar, dependsOn: subprojects.jar) {
+    archiveFileName = allJarName + "-" + project.property('version') + "-" + buildNumber + ".jar"
+    manifest{
+        attributes("Built-By": System.getProperty("user.name"),
+                "Creation-Timestamp": getTS(),
+                "Implementation-Version": project.property('version'),
+                "Implementation-Vendor": "Rampart",
+                "Implementation-URL": "http://www.rampart.org",
+                "Jarfile-Name": archiveFileName,
+                "Mode-Name": "release",
+                "Version-Name": project.property('version') + "-" + getGitRevHash(),
+                "Changeset-Name": getGitRevHash())
+    }
+
+    subprojects.each { subproject ->
+        from subproject.configurations.archives.artifacts.files.collect {
+            zipTree(it)
+        }
+    }
+
+    doLast {
+        pom {
+            project {
+                groupId 'org.rampart.lang'
+                artifactId allJarName
+            }
+        }.writeTo("$mavenPomDir/pom.xml")
+    }
+}
+build.dependsOn fatJar
+
+def getGitRevHash() {
+    def hashStdOut = new ByteArrayOutputStream()
+    exec {
+        commandLine "git", "rev-parse", "--short=12", "HEAD"
+        standardOutput = hashStdOut
+    }
+    return hashStdOut.toString().trim()
+}
+
+static def getTS() {
+    new Date().format('dd-MM-yyyy-hh:mm:ss')
+}
+
+def getJavacComplianceLevel(javac) {
+    def stdOutput = new ByteArrayOutputStream()
+    def stdErr = new ByteArrayOutputStream()
+    exec {
+        ignoreExitValue true
+        commandLine javac, "-version"
+        standardOutput = stdOutput
+        errorOutput = stdErr
+    }
+    def output= stdOutput.toString()
+    if (output.isEmpty()) {
+        output = stdErr.toString();
+        if (output.isEmpty()) {
+            throw new IllegalStateException("Unable to find Java compliance version - 'java -version' command produced no output")
+        }
+    }
+    Matcher matcher = Pattern.compile("[1][.][5-8]|\\d+").matcher(output)
+    if (!matcher.find()) {
+        throw new IllegalStateException("Unable to find Java compliance version from " + output)
+    }
+    return matcher.group(0)
+}
+
+def getJavac() {
+    if (!project.hasProperty("jdkHome") || jdkHome.isEmpty()) {
+        throw new IllegalArgumentException("Unknown JDK to build the RAMPART project. Please specify -PjdkHome")
+    } else if(!new File(jdkHome, "bin").exists()) {
+        throw new IllegalArgumentException("JDK location " + jdkHome + " must have a bin directory")
+    }
+    File binFolder = new File(jdkHome, "bin");
+    File javacFile = new File(binFolder, "javac")
+    if (!javacFile.exists()) {
+        throw new IllegalArgumentException("Unable to locate javac in " + binFolder)
+    }
+    if (!getJavacComplianceLevel(javacFile).equals(compatibility)) {
+        throw new IllegalStateException(javacFile.toString() + " has compliance " + getJavacComplianceLevel(javacFile) + ". Required compliance is " + compatibility)
+    }
+    return javacFile
+}
+

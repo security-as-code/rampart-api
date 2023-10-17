@@ -1,0 +1,29 @@
+# Gradle
+.gradle/
+build/
+
+# Intelij
+*.iml
+.idea/
+out/
+
+# Eclipse
+.metadata/
+.recommenders/
+.classpath
+.settings/
+.project
+bin/
+
+# Gedit
+*~
+*.orig
+
+# Antlr
+*.tokens
+
+# Vim
+*.swp
+
+#Git
+*.orig

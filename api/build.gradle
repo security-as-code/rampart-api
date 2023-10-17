@@ -1,0 +1,36 @@
+plugins {
+    id 'java'
+    id 'maven'
+}
+
+dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.9.0'
+    testImplementation 'org.hamcrest:hamcrest:2.2'
+    testImplementation 'org.mockito:mockito-core:4.11.0'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+jar {
+    archiveFileName = apiJarName + "-" + project.property('version') + ".jar"
+    manifest {
+        attributes("Built-By": System.getProperty("user.name"),
+                "Creation-Timestamp": getTS(),
+                "Implementation-Version": project.property('version'),
+                "Implementation-Vendor": "Rampart",
+                "Implementation-URL": "http://www.rampart.org",
+                "Jarfile-Name": archiveFileName,
+                "Mode-Name": "release",
+                "Version-Name": project.property('version') + "-" + getGitRevHash(),
+                "Changeset-Name": getGitRevHash())
+    }
+}
+
+pom {
+    project {
+        groupId 'org.rampart.lang'
+        artifactId apiJarName
+    }
+}.writeTo("$mavenPomDir/pom.xml")
